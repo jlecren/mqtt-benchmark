@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"time"
@@ -19,6 +21,7 @@ type Client struct {
 	MsgTopic   string
 	MsgSize    int
 	MsgCount   int
+	MsgRate    int
 	MsgQoS     byte
 	Quiet      bool
 }
@@ -67,11 +70,30 @@ func (c *Client) Run(res chan *RunResults) {
 }
 
 func (c *Client) genMessages(ch chan *Message, done chan bool) {
+	
+	tick := int64(0)
+	if c.MsgRate > 0 {
+		tick = int64(time.Second) / int64(c.MsgRate)
+		log.Printf("Tick for %v nanoseconds\n", tick)
+	}
+	start := time.Now().UnixNano()
+
 	for i := 0; i < c.MsgCount; i++ {
+		payload := make([]byte, c.MsgSize)
+		buffer := bytes.NewBuffer(payload)
+		binary.Write(buffer, binary.LittleEndian, i)
 		ch <- &Message{
 			Topic:   c.MsgTopic,
 			QoS:     c.MsgQoS,
-			Payload: make([]byte, c.MsgSize),
+			Payload: payload,
+		}
+
+		if tick > 0 {
+			for delay := (start + tick - time.Now().UnixNano()); delay > 0; {
+				time.Sleep(time.Duration(delay))
+				delay = (start + tick - time.Now().UnixNano())
+			}
+			start += tick
 		}
 	}
 	done <- true
