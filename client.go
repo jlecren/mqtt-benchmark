@@ -73,7 +73,6 @@ func (c *Client) genMessages(ch chan *Message, done chan bool) {
 	tick := int64(0)
 	if c.MsgRate > 0 {
 		tick = int64(time.Second) / int64(c.MsgRate)
-		log.Printf("Tick for %v nanoseconds\n", tick)
 	}
 	start := time.Now().UnixNano()
 	topic := fmt.Sprintf("%v/%v/0", c.MsgTopic, c.ID)
