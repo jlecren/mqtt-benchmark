@@ -2,14 +2,13 @@ package main
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
-)
 
-import (
 	"github.com/GaryBoone/GoStats/stats"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -70,22 +69,28 @@ func (c *Client) Run(res chan *RunResults) {
 }
 
 func (c *Client) genMessages(ch chan *Message, done chan bool) {
-	
+
 	tick := int64(0)
 	if c.MsgRate > 0 {
 		tick = int64(time.Second) / int64(c.MsgRate)
 		log.Printf("Tick for %v nanoseconds\n", tick)
 	}
 	start := time.Now().UnixNano()
+	topic := fmt.Sprintf("%v/%v/0", c.MsgTopic, c.ID)
+	payload := make([]byte, c.MsgSize)
+	payloadBuf := bytes.NewBuffer(payload)
 
 	for i := 0; i < c.MsgCount; i++ {
-		payload := make([]byte, c.MsgSize)
-		buffer := bytes.NewBuffer(payload)
-		binary.Write(buffer, binary.LittleEndian, i)
+		payloadBuf.Reset()
+		payloadBuf.WriteString(c.MsgTopic)
+		payloadBuf.WriteString(",")
+		payloadBuf.WriteString(strconv.Itoa(c.ID))
+		payloadBuf.WriteString(",0,")
+		payloadBuf.WriteString(strconv.Itoa(i))
 		ch <- &Message{
-			Topic:   c.MsgTopic,
+			Topic:   topic,
 			QoS:     c.MsgQoS,
-			Payload: payload,
+			Payload: payloadBuf.String(),
 		}
 
 		if tick > 0 {
@@ -111,6 +116,7 @@ func (c *Client) pubMessages(in, out chan *Message, doneGen, donePub chan bool) 
 			select {
 			case m := <-in:
 				m.Sent = time.Now()
+				//log.Printf("CLIENT %v publish on %v : %v\n", c.ID, m.Topic, m.Payload)
 				token := client.Publish(m.Topic, m.QoS, false, m.Payload)
 				token.Wait()
 				if token.Error() != nil {
@@ -145,8 +151,8 @@ func (c *Client) pubMessages(in, out chan *Message, doneGen, donePub chan bool) 
 		SetAutoReconnect(true).
 		SetOnConnectHandler(onConnected).
 		SetConnectionLostHandler(func(client mqtt.Client, reason error) {
-		log.Printf("CLIENT %v lost connection to the broker: %v. Will reconnect...\n", c.ID, reason.Error())
-	})
+			log.Printf("CLIENT %v lost connection to the broker: %v. Will reconnect...\n", c.ID, reason.Error())
+		})
 	if c.BrokerUser != "" && c.BrokerPass != "" {
 		opts.SetUsername(c.BrokerUser)
 		opts.SetPassword(c.BrokerPass)
