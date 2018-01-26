@@ -22,6 +22,7 @@ type Client struct {
 	MsgCount   int
 	MsgRate    int
 	MsgQoS     byte
+	RunId      string
 	Quiet      bool
 }
 
@@ -75,17 +76,37 @@ func (c *Client) genMessages(ch chan *Message, done chan bool) {
 		tick = int64(time.Second) / int64(c.MsgRate)
 	}
 	start := time.Now().UnixNano()
-	topic := fmt.Sprintf("%v/%v/0", c.MsgTopic, c.ID)
+	topic := fmt.Sprintf("%v/%v/%v", c.MsgTopic, c.ID, c.RunId)
 	payload := make([]byte, c.MsgSize)
 	payloadBuf := bytes.NewBuffer(payload)
 
 	for i := 0; i < c.MsgCount; i++ {
 		payloadBuf.Reset()
-		payloadBuf.WriteString(c.MsgTopic)
+		payloadBuf.WriteString(c.RunId)
 		payloadBuf.WriteString(",")
 		payloadBuf.WriteString(strconv.Itoa(c.ID))
-		payloadBuf.WriteString(",0,")
+		payloadBuf.WriteString(",")
 		payloadBuf.WriteString(strconv.Itoa(i))
+		payloadBuf.WriteString(",")
+		payloadBuf.WriteString(c.MsgTopic)
+		r := (payloadBuf.Cap() - payloadBuf.Len())
+		if r > 0 {
+			payloadBuf.WriteString(",")
+			r--
+			for ; r > 0; r = (payloadBuf.Cap() - payloadBuf.Len()) {
+				if r >= 16 {
+					payloadBuf.WriteString("________________")
+				} else if r >= 8 {
+					payloadBuf.WriteString("________")
+				} else if r >= 4 {
+					payloadBuf.WriteString("____")
+				} else if r >= 2 {
+					payloadBuf.WriteString("__")
+				} else {
+					payloadBuf.WriteString("_")
+				}
+			}
+		}
 		ch <- &Message{
 			Topic:   topic,
 			QoS:     c.MsgQoS,

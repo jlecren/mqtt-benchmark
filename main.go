@@ -67,6 +67,7 @@ func main() {
 		count    = flag.Int("count", 100, "Number of messages to send per client")
 		rate     = flag.Int("rate", 0, "Limit the rate of messages sent by each client (msg/sec, 0 for unlimited)")
 		clients  = flag.Int("clients", 10, "Number of clients to start")
+		id       = flag.String("id", "0", "Benchmark run identifier")
 		format   = flag.String("format", "text", "Output format: text|json")
 		quiet    = flag.Bool("quiet", false, "Suppress logs while running")
 	)
@@ -90,8 +91,9 @@ func main() {
 			MsgTopic:   *topic,
 			MsgSize:    *size,
 			MsgCount:   *count,
-			MsgRate:	*rate,
+			MsgRate:    *rate,
 			MsgQoS:     byte(*qos),
+			RunId:      *id,
 			Quiet:      *quiet,
 		}
 		go c.Run(resCh)
